@@ -25,7 +25,7 @@ public class KafkaConsumer {
 
     @KafkaListener(groupId = "${spring.kafka.cornell.topic.name}", topics = "${spring.kafka.consumer.group.id}")
     public void enrollUpdateConsumer(ConsumerRecord<String, String> data) {
-        log.info("NotificationConsumer::enrollUpdateConsumer:recievedData:"+ data.toString());
+        log.info("KafkaConsumer::enrollUpdateConsumer:recievedData:"+ data.toString());
         CustomResponse response = new CustomResponse();
         try {
             Map<String, Object> userCourseEnrollMap = mapper.readValue(data.value(), HashMap.class);
@@ -49,7 +49,7 @@ public class KafkaConsumer {
                             100);
                     }
                     cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_EXTERNAL_ENROLMENTS_T1, updatedMap, propertyMap);
-                    log.info("NotificationConsumer::enrollUpdateConsumer:updated");
+                    log.info("KafkaConsumer::enrollUpdateConsumer:updated");
                 }
             }
 
@@ -59,7 +59,8 @@ public class KafkaConsumer {
     }
 
     public static Timestamp convertToTimestamp(String dateString) {
-        SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+        SimpleDateFormat dateFormat = new SimpleDateFormat("MM/dd/yyyy");
+        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC")); // Set desired timezone, UTC in this example
         try {
             // Parse the date string into a Date object
             Date parsedDate = dateFormat.parse(dateString);
