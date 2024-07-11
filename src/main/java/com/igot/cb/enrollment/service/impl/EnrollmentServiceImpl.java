@@ -178,9 +178,15 @@ public class EnrollmentServiceImpl implements EnrollmentService {
             String courseId = (String) enrollment.get("courseid"); // Assuming "courseid" is a key in the map
             result.put(courseId, enrollment); // Populate result map with courseId as key and enrollment map as value
           }
-          response.setResponseCode(HttpStatus.OK);
-          response.setResult(result);
-          return response;
+          if(!result.isEmpty()) {
+            response.setResponseCode(HttpStatus.OK);
+            response.setResult(result);
+            return response;
+          }else{
+            response.setResponseCode(HttpStatus.BAD_REQUEST);
+            response.setMessage("courseId is not matching");
+            return response;
+          }
         } else {
           response.setMessage("UserId is not matching");
           response.setResponseCode(HttpStatus.BAD_REQUEST);
