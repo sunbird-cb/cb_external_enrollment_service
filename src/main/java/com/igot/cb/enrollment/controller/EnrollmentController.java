@@ -26,19 +26,19 @@ public class EnrollmentController {
   @Autowired
   private EnrollmentService enrollmentService;
 
-  @PostMapping("/create")
+  @PostMapping("/v1/create")
   public ResponseEntity<CustomResponse> create(@RequestBody JsonNode userCourseEnroll, @RequestHeader(Constants.X_AUTH_TOKEN) String token) {
     CustomResponse response = enrollmentService.enrollUser(userCourseEnroll, token);
     return new ResponseEntity<>(response, response.getResponseCode());
   }
 
-  @GetMapping("/listbyuserid/{id}")
+  @GetMapping("/v1/listbyuserid/{id}")
   public ResponseEntity<?> readByUserId(@PathVariable String id, @RequestHeader(Constants.X_AUTH_TOKEN) String token) {
     CustomResponse response = enrollmentService.readByUserId(id,token);
     return new ResponseEntity<>(response, HttpStatus.OK);
   }
 
-  @GetMapping("/readByUserIdAndCourseId/{userId}/{courseId}")
+  @GetMapping("/v1/readby/useridcourseId/{userId}/{courseId}")
   public ResponseEntity<?> readByUserIdAndCourseId(@PathVariable String userId,@PathVariable String courseId, @RequestHeader(Constants.X_AUTH_TOKEN) String token) {
     CustomResponse response = enrollmentService.readByUserIdAndCourseId(userId,courseId,token);
     return new ResponseEntity<>(response, HttpStatus.OK);
