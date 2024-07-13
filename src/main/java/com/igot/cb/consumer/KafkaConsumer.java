@@ -23,7 +23,7 @@ public class KafkaConsumer {
     @Autowired
     private CassandraOperation cassandraOperation;
 
-    @KafkaListener(groupId = "${spring.kafka.cornell.topic.name}", topics = "${spring.kafka.consumer.group.id}")
+    @KafkaListener(topics = "${spring.kafka.cornell.topic.name}", groupId = "${spring.kafka.consumer.group.id}")
     public void enrollUpdateConsumer(ConsumerRecord<String, String> data) {
         log.info("KafkaConsumer::enrollUpdateConsumer:recievedData:"+ data.toString());
         CustomResponse response = new CustomResponse();
