@@ -12,6 +12,7 @@ import com.igot.cb.transactional.cassandrautils.CassandraOperation;
 import java.sql.Timestamp;
 import java.util.*;
 
+import com.igot.cb.util.exceptions.CustomException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,13 +72,15 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                         Constants.TABLE_USER_EXTERNAL_ENROLMENTS_T1, userCourseEnrollMap);
                 response.setResponseCode(HttpStatus.OK);
                 response.setResult(userCourseEnrollMap);
-                CustomResponse cachedResponse = objectMapper.readValue(cacheService.getCache(userId), CustomResponse.class);
-                if (cachedResponse == null) {
-                    cachedResponse = new CustomResponse();
-                    cachedResponse.setResponseCode(HttpStatus.OK);
-                    cachedResponse.setResult(new HashMap<>()); // Initialize with empty list
+                String cachedData = cacheService.getCache(userId);
+                CustomResponse cachedResponse = new CustomResponse();
+                cachedResponse.setResponseCode(HttpStatus.OK);
+                if (cachedData == null) {
+                    cachedResponse.getResult().put(userCourseEnroll.get("courseId").asText(), userCourseEnrollMap); // Initialize with empty list
+                }else {
+                    cachedResponse = objectMapper.readValue(cachedData, CustomResponse.class);
+                    cachedResponse.getResult().put(userCourseEnroll.get("courseId").asText(), userCourseEnrollMap);
                 }
-                cachedResponse.getResult().put(userCourseEnroll.get("courseId").asText(), userCourseEnrollMap);
                 cacheService.putCache(userId, cachedResponse);
                 cacheService.putCache(userId + userCourseEnroll.get("courseId").asText(), response);
                 return response;
@@ -88,7 +91,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
             }
         } catch (Exception e) {
             log.error("error while processing", e);
-            throw new RuntimeException(e);
+            throw new CustomException("ERROR",e.getMessage(),HttpStatus.BAD_REQUEST);
         }
 
     }
