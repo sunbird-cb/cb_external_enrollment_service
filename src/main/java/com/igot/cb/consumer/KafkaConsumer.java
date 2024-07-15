@@ -1,6 +1,7 @@
 package com.igot.cb.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.igot.cb.util.cache.CacheService;
 import com.igot.cb.util.dto.CustomResponse;
 import com.igot.cb.util.Constants;
 import com.igot.cb.transactional.cassandrautils.CassandraOperation;
@@ -23,11 +24,15 @@ public class KafkaConsumer {
     @Autowired
     private CassandraOperation cassandraOperation;
 
+    @Autowired
+    CacheService cacheService;
+
     @KafkaListener(topics = "${spring.kafka.cornell.topic.name}", groupId = "${spring.kafka.consumer.group.id}")
     public void enrollUpdateConsumer(ConsumerRecord<String, String> data) {
-        log.info("KafkaConsumer::enrollUpdateConsumer:recievedData:"+ data.toString());
-        CustomResponse response = new CustomResponse();
+        log.info("enrollmentUpdateConsumer topic name {}",data.topic());
+        log.info("KafkaConsumer::enrollUpdateConsumer:recievedData:"+ data);
         try {
+            CustomResponse response = new CustomResponse();
             Map<String, Object> userCourseEnrollMap = mapper.readValue(data.value(), HashMap.class);
             if(userCourseEnrollMap.containsKey("userid") && userCourseEnrollMap.get("userid") instanceof String && userCourseEnrollMap.containsKey("courseid") && userCourseEnrollMap.get("courseid") instanceof String){
                 String[] parts = ((String) userCourseEnrollMap.get("userid")).split("@");
@@ -37,6 +42,7 @@ public class KafkaConsumer {
                 propertyMap.put("courseid", userCourseEnrollMap.get("courseid"));
                 List<Map<String, Object>> listOfMasterData =cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_EXTERNAL_ENROLMENTS_T1, propertyMap, null,1);
                 if (!CollectionUtils.isEmpty(listOfMasterData)) {
+
                     Map<String, Object> updatedMap = new HashMap<>();
                     updatedMap.put("progress",
                         100);
@@ -49,6 +55,8 @@ public class KafkaConsumer {
                             100);
                     }
                     cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_EXTERNAL_ENROLMENTS_T1, updatedMap, propertyMap);
+                    cacheService.deleteCache(userCourseEnrollMap.get("userid").toString()+userCourseEnrollMap.get("courseid").toString());
+                    cacheService.deleteCache(userCourseEnrollMap.get("userid").toString());
                     log.info("KafkaConsumer::enrollUpdateConsumer:updated");
                 }
             }
