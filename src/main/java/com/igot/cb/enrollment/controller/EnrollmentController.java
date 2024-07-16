@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.igot.cb.enrollment.service.EnrollmentService;
 import com.igot.cb.util.dto.CustomResponse;
 import com.igot.cb.util.Constants;
+import com.igot.cb.util.dto.CustomResponseList;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,15 +33,15 @@ public class EnrollmentController {
     return new ResponseEntity<>(response, response.getResponseCode());
   }
 
-  @GetMapping("/v1/listbyuserid/{id}")
-  public ResponseEntity<?> readByUserId(@PathVariable String id, @RequestHeader(Constants.X_AUTH_TOKEN) String token) {
-    CustomResponse response = enrollmentService.readByUserId(id,token);
+  @GetMapping("/v1/courselist/byuserid")
+  public ResponseEntity<?> readByUserId(@RequestHeader(Constants.X_AUTH_TOKEN) String token) {
+    CustomResponseList response = enrollmentService.readByUserId(token);
     return new ResponseEntity<>(response, HttpStatus.OK);
   }
 
-  @GetMapping("/v1/readby/useridcourseId/{userId}/{courseId}")
-  public ResponseEntity<?> readByUserIdAndCourseId(@PathVariable String userId,@PathVariable String courseId, @RequestHeader(Constants.X_AUTH_TOKEN) String token) {
-    CustomResponse response = enrollmentService.readByUserIdAndCourseId(userId,courseId,token);
+  @GetMapping("/v1/readby/useridcourseid/{courseId}")
+  public ResponseEntity<?> readByUserIdAndCourseId(@PathVariable String courseId, @RequestHeader(Constants.X_AUTH_TOKEN) String token) {
+    CustomResponse response = enrollmentService.readByUserIdAndCourseId(courseId,token);
     return new ResponseEntity<>(response, HttpStatus.OK);
   }
 }
