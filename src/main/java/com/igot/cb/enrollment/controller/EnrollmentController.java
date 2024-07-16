@@ -39,9 +39,9 @@ public class EnrollmentController {
     return new ResponseEntity<>(response, HttpStatus.OK);
   }
 
-  @GetMapping("/v1/readby/useridcourseid/{courseId}")
-  public ResponseEntity<?> readByUserIdAndCourseId(@PathVariable String courseId, @RequestHeader(Constants.X_AUTH_TOKEN) String token) {
-    CustomResponse response = enrollmentService.readByUserIdAndCourseId(courseId,token);
+  @GetMapping("/v1/readby/useridcourseid/{courseid}")
+  public ResponseEntity<?> readByUserIdAndCourseId(@PathVariable String courseid, @RequestHeader(Constants.X_AUTH_TOKEN) String token) {
+    CustomResponse response = enrollmentService.readByUserIdAndCourseId(courseid,token);
     return new ResponseEntity<>(response, HttpStatus.OK);
   }
 }
