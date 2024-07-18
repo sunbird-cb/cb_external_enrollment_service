@@ -5,17 +5,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.igot.cb.authentication.util.AccessTokenValidator;
 import com.igot.cb.enrollment.service.EnrollmentService;
 import com.igot.cb.util.cache.CacheService;
-import com.igot.cb.util.dto.CustomResponse;
+import com.igot.cb.util.dto.*;
 import com.igot.cb.util.Constants;
 import com.igot.cb.util.PayloadValidation;
 import com.igot.cb.transactional.cassandrautils.CassandraOperation;
 import java.sql.Timestamp;
 import java.util.*;
-
-import com.igot.cb.util.dto.CustomResponseList;
-import com.igot.cb.util.exceptions.CustomException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.joda.time.DateTime;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -40,19 +38,21 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     CacheService cacheService;
 
     @Override
-    public CustomResponse enrollUser(JsonNode userCourseEnroll, String token) {
+    public SBApiResponse enrollUser(JsonNode userCourseEnroll, String token) {
         log.info("EnrollmentService::enrollUser:inside the method");
-        CustomResponse response = new CustomResponse();
+        SBApiResponse response = createDefaultResponse(Constants.CIOS_ENROLLMENT_CREATE);
         try {
             String userId = accessTokenValidator.verifyUserToken(token);
             log.info("UserId from auth token {}", userId);
             if (StringUtils.isBlank(userId) || userId.equalsIgnoreCase(Constants.UNAUTHORIZED)) {
-                response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
+                response.getParams().setMsg(Constants.USER_ID_DOESNT_EXIST);
+                response.getParams().setStatus(Constants.FAILED);
                 response.setResponseCode(HttpStatus.BAD_REQUEST);
                 return response;
             }
             if (userCourseEnroll.has(Constants.COURSE_ID_RQST) && !userCourseEnroll.get(
                     Constants.COURSE_ID_RQST).isNull()) {
+
                 TimeZone timeZone = TimeZone.getTimeZone("Asia/Kolkata");
                 Timestamp timestamp = new Timestamp(System.currentTimeMillis());
                 timestamp.setTime(timestamp.getTime() + timeZone.getOffset(timestamp.getTime()));
@@ -76,49 +76,55 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                         Constants.TABLE_USER_EXTERNAL_ENROLMENTS_T1, userCourseEnrollMap);
                 response.setResponseCode(HttpStatus.OK);
                 response.setResult(userCourseEnrollMap);
-                CustomResponseList customResponseList=new CustomResponseList();
-                customResponseList.setResponseCode(HttpStatus.OK);
+                SBApiResponse cachedresponse=createDefaultResponse(Constants.CIOS_ENROLLMENT_CREATE);
+                cachedresponse.setResponseCode(HttpStatus.OK);
                 List<Object> resultList;
                 String cachedData = cacheService.getCache(userId);
                 if (cachedData == null) {
                     resultList = new ArrayList<>();
                 } else {
-                    customResponseList = objectMapper.readValue(cachedData, CustomResponseList.class);
-                    resultList = customResponseList.getResult();
+                    cachedresponse = objectMapper.readValue(cachedData, SBApiResponse.class);
+                    resultList = cachedresponse.getObjectList();
                 }
                 resultList.add(userCourseEnrollMap);
-                customResponseList.setResult(resultList);
-                cacheService.putCache(userId, customResponseList);
+                cachedresponse.setObjectList(resultList);
+                cacheService.putCache(userId, cachedresponse);
                 cacheService.putCache(userId + userCourseEnroll.get("courseId").asText(), response);
                 return response;
             } else {
-                response.setMessage("CourseId is missing");
+                response.getParams().setMsg("CourseId is missing");
+                response.getParams().setStatus(Constants.FAILED);
                 response.setResponseCode(HttpStatus.BAD_REQUEST);
                 return response;
             }
         } catch (Exception e) {
-            log.error("error while processing", e);
-            throw new CustomException("ERROR", e.getMessage(), HttpStatus.BAD_REQUEST);
+            String errMsg = "Error while performing operation." + e.getMessage();
+            log.error(errMsg, e);
+            response.getParams().setMsg(errMsg);
+            response.getParams().setStatus(Constants.FAILED);
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
+        return response;
     }
 
     @Override
-    public CustomResponseList readByUserId(String token) {
+    public SBApiResponse readByUserId(String token) {
         log.info("EnrollmentService::readByUserId:inside the method");
-        CustomResponseList response = new CustomResponseList();
+        SBApiResponse response = createDefaultResponse(Constants.CIOS_ENROLLMENT_READ_COURSELIST);
         try {
             String userId = accessTokenValidator.verifyUserToken(token);
             log.info("UserId from auth token {}", userId);
             if (StringUtils.isBlank(userId) || userId.equalsIgnoreCase(Constants.UNAUTHORIZED)) {
-                response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
+                response.getParams().setMsg(Constants.USER_ID_DOESNT_EXIST);
+                response.getParams().setStatus(Constants.FAILED);
                 response.setResponseCode(HttpStatus.BAD_REQUEST);
                 return response;
             }
             String cacheResponse = cacheService.getCache(userId);
             if (cacheResponse != null) {
                 log.info("EnrollmentServiceImpl :: readByUserId :: Data reading from cache");
-                response = objectMapper.readValue(cacheResponse, CustomResponseList.class);
+                response = objectMapper.readValue(cacheResponse, SBApiResponse.class);
             } else {
                 List<String> fields = Arrays.asList("userid", "courseid", "completedon", "completionpercentage", "enrolled_date", "issued_certificates", "progress", "status"); // Assuming user_id is the column name in your table
                 Map<String, Object> propertyMap = new HashMap<>();
@@ -131,28 +137,36 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 );
                 if (!userEnrollmentList.isEmpty()) {
                     response.setResponseCode(HttpStatus.OK);
-                    response.setResult(Collections.singletonList(userEnrollmentList));
+                    response.setObjectList(Collections.singletonList(userEnrollmentList));
                     cacheService.putCache(userId, response);
                 } else {
-                    response.setResponseCode(HttpStatus.BAD_REQUEST);
-                    response.setMessage("User is not enrolled into any courses");
+                    response.getParams().setMsg("User is not enrolled into any courses");
+                    response.getParams().setStatus(Constants.SUCCESS);
+                    response.setResponseCode(HttpStatus.OK);
+                    return response;
+
                 }
             }
             return response;
         } catch (Exception e) {
-            log.error("error while processing", e);
-            throw new RuntimeException(e);
+            String errMsg = "Error while performing operation." + e.getMessage();
+            log.error(errMsg, e);
+            response.getParams().setMsg(errMsg);
+            response.getParams().setStatus(Constants.FAILED);
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
         }
+        return response;
     }
 
     @Override
-    public CustomResponse readByUserIdAndCourseId(String courseid, String token) {
+    public SBApiResponse readByUserIdAndCourseId(String courseid, String token) {
         log.info("EnrollmentService::readByUserIdAndCourseId:inside the method");
-        CustomResponse response = new CustomResponse();
+        SBApiResponse response = createDefaultResponse(Constants.CIOS_ENROLLMENT_READ_COURSEID);
         try {
             String userId = accessTokenValidator.verifyUserToken(token);
             if (StringUtils.isBlank(userId) || userId.equalsIgnoreCase(Constants.UNAUTHORIZED)) {
-                response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
+                response.getParams().setMsg(Constants.USER_ID_DOESNT_EXIST);
+                response.getParams().setStatus(Constants.FAILED);
                 response.setResponseCode(HttpStatus.BAD_REQUEST);
                 return response;
             }
@@ -160,7 +174,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
             String cacheResponse = cacheService.getCache(userId + courseid);
             if (cacheResponse != null) {
                 log.info("EnrollmentServiceImpl :: readByUserIdAndCourseId :: Data reading from cache");
-                response = objectMapper.readValue(cacheResponse, CustomResponse.class);
+                response = objectMapper.readValue(cacheResponse, SBApiResponse.class);
             } else {
                 List<String> fields = Arrays.asList("userid", "courseid", "completedon", "completionpercentage", "enrolled_date", "issued_certificates", "progress", "status"); // Assuming user_id is the column name in your table
                 Map<String, Object> propertyMap = new HashMap<>();
@@ -179,13 +193,17 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                             response.setResult(enrollment);
                             cacheService.putCache(userId + courseid, response);
                         } else {
+                            response.getParams().setMsg("courseId is not matching");
+                            response.getParams().setStatus(Constants.FAILED);
                             response.setResponseCode(HttpStatus.BAD_REQUEST);
-                            response.setMessage("courseId is not matching");
+                            return response;
                         }
                     }
                 } else {
-                    response.setResponseCode(HttpStatus.BAD_REQUEST);
-                    response.setMessage("User not enrolled into the course");
+                    response.getParams().setMsg("User not enrolled into the course");
+                    response.getParams().setStatus(Constants.SUCCESS);
+                    response.setResponseCode(HttpStatus.OK);
+                    return response;
                 }
             }
             return response;
@@ -193,5 +211,16 @@ public class EnrollmentServiceImpl implements EnrollmentService {
             log.error("error while processing", e);
             throw new RuntimeException(e);
         }
+    }
+
+    private SBApiResponse createDefaultResponse(String api) {
+        SBApiResponse response = new SBApiResponse();
+        response.setId(api);
+        response.setVer(Constants.API_VERSION_1);
+        response.setParams(new SunbirdApiRespParam(UUID.randomUUID().toString()));
+        response.getParams().setStatus(Constants.SUCCESS);
+        response.setResponseCode(HttpStatus.OK);
+        response.setTs(DateTime.now().toString());
+        return response;
     }
 }
