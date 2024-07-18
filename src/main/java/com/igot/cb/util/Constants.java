@@ -263,6 +263,10 @@ public class Constants {
     public static final String TABLE_USER_EXTERNAL_ENROLMENTS_T1 = "user_external_enrolments_t1";
     public static final String ENROLLED_DATE = "enrolled_date";
     public static final String COURSE_ID_RQST = "courseId";
+    public static final String CIOS_ENROLLMENT_CREATE="ciosenroll.v1.create";
+    public static final String CIOS_ENROLLMENT_READ_COURSELIST="ciosenroll.v1.courselist.byuserid";
+    public static final String CIOS_ENROLLMENT_READ_COURSEID="ciosenroll.v1.readby.useridcourseid";
+
 
     private Constants() {
     }
