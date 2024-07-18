@@ -90,7 +90,7 @@ public class KafkaConsumer {
     private String callExtApi(String extCourseId) {
         String url = baseUrl + fixedUrl + extCourseId;
         HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", "bearer " + token);
+        headers.set("Authorization",token);
         HttpEntity<String> entity = new HttpEntity<>(headers);
         ResponseEntity<Object> response = restTemplate.exchange(
                 url,
