@@ -9,6 +9,7 @@ import com.igot.cb.util.Constants;
 import com.igot.cb.transactional.cassandrautils.CassandraOperation;
 
 import java.io.File;
+import java.io.InputStream;
 import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -24,6 +25,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.util.ResourceUtils;
 import org.springframework.web.client.RestTemplate;
 
@@ -60,6 +63,9 @@ public class KafkaConsumer {
     @Autowired
     private Producer producer;
 
+    @Autowired
+    private ResourceLoader resourceLoader;
+
     @KafkaListener(topics = "${spring.kafka.cornell.topic.name}", groupId = "${spring.kafka.consumer.group.id}")
     public void enrollUpdateConsumer(ConsumerRecord<String, String> data) {
         log.info("KafkaConsumer::enrollUpdateConsumer:topic name: {} and recievedData: {}", data.topic(), data.value());
@@ -90,10 +96,12 @@ public class KafkaConsumer {
                     cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_EXTERNAL_ENROLMENTS_T1, updatedMap, propertyMap);
                     cacheService.deleteCache(userCourseEnrollMap.get("userid").toString() + courseId);
                     cacheService.deleteCache(userCourseEnrollMap.get("userid").toString());
-                    File metadataFile = ResourceUtils.getFile("classpath:certificateTemplate.json");
-                    JsonNode jsonNode = mapper.readTree(metadataFile);
+                    Resource resource = resourceLoader.getResource("classpath:certificateTemplate.json");
+                    InputStream inputStream = resource.getInputStream();
+                    JsonNode jsonNode = mapper.readTree(inputStream);
                     replacePlaceholders(jsonNode, propertyMap);
                     producer.push(certificate, jsonNode);
+                    inputStream.close();
                     log.info("KafkaConsumer::enrollUpdateConsumer:updated");
                 }
             }
