@@ -76,19 +76,16 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                         Constants.TABLE_USER_EXTERNAL_ENROLMENTS_T1, userCourseEnrollMap);
                 response.setResponseCode(HttpStatus.OK);
                 response.setResult(userCourseEnrollMap);
-                SBApiResponse cachedresponse=createDefaultResponse(Constants.CIOS_ENROLLMENT_CREATE);
-                cachedresponse.setResponseCode(HttpStatus.OK);
-                List<Object> resultList;
+                SBApiResponse cachedResponse=createDefaultResponse(Constants.CIOS_ENROLLMENT_READ_COURSELIST);
+                cachedResponse.setResponseCode(HttpStatus.OK);
                 String cachedData = cacheService.getCache(userId);
                 if (cachedData == null) {
-                    resultList = new ArrayList<>();
+                    cachedResponse.setObjectList((Arrays.asList(userCourseEnrollMap)));
                 } else {
-                    cachedresponse = objectMapper.readValue(cachedData, SBApiResponse.class);
-                    resultList = cachedresponse.getObjectList();
+                    cachedResponse = objectMapper.readValue(cachedData, SBApiResponse.class);
+                    cachedResponse.getObjectList().add(userCourseEnrollMap);
                 }
-                resultList.add(userCourseEnrollMap);
-                cachedresponse.setObjectList(resultList);
-                cacheService.putCache(userId, cachedresponse);
+                cacheService.putCache(userId, cachedResponse);
                 cacheService.putCache(userId + userCourseEnroll.get("courseId").asText(), response);
                 return response;
             } else {
@@ -137,7 +134,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 );
                 if (!userEnrollmentList.isEmpty()) {
                     response.setResponseCode(HttpStatus.OK);
-                    response.setObjectList(Collections.singletonList(userEnrollmentList));
+                    response.getObjectList().addAll(userEnrollmentList);
                     cacheService.putCache(userId, response);
                 } else {
                     response.getParams().setMsg("User is not enrolled into any courses");
