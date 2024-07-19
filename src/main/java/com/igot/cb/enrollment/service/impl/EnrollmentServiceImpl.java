@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.igot.cb.authentication.util.AccessTokenValidator;
 import com.igot.cb.enrollment.service.EnrollmentService;
+import com.igot.cb.util.CbServerProperties;
 import com.igot.cb.util.cache.CacheService;
 import com.igot.cb.util.dto.*;
 import com.igot.cb.util.Constants;
@@ -15,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.joda.time.DateTime;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -36,6 +38,10 @@ public class EnrollmentServiceImpl implements EnrollmentService {
 
     @Autowired
     CacheService cacheService;
+
+    @Autowired
+    private CbServerProperties cbServerProperties;
+
 
     @Override
     public SBApiResponse enrollUser(JsonNode userCourseEnroll, String token) {
@@ -76,6 +82,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                         Constants.TABLE_USER_EXTERNAL_ENROLMENTS_T1, userCourseEnrollMap);
                 response.setResponseCode(HttpStatus.OK);
                 response.setResult(userCourseEnrollMap);
+                if(cbServerProperties.isRedisCacheEnable()) {
                 SBApiResponse cachedResponse=createDefaultResponse(Constants.CIOS_ENROLLMENT_READ_COURSELIST);
                 cachedResponse.setResponseCode(HttpStatus.OK);
                 String cachedData = cacheService.getCache(userId);
@@ -87,6 +94,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 }
                 cacheService.putCache(userId, cachedResponse);
                 cacheService.putCache(userId + userCourseEnroll.get("courseId").asText(), response);
+                }
                 return response;
             } else {
                 response.getParams().setMsg("CourseId is missing");
@@ -118,11 +126,11 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 response.setResponseCode(HttpStatus.BAD_REQUEST);
                 return response;
             }
-            String cacheResponse = cacheService.getCache(userId);
-            if (cacheResponse != null) {
-                log.info("EnrollmentServiceImpl :: readByUserId :: Data reading from cache");
-                response = objectMapper.readValue(cacheResponse, SBApiResponse.class);
-            } else {
+//            String cacheResponse = cacheService.getCache(userId);
+//            if (cacheResponse != null) {
+//                log.info("EnrollmentServiceImpl :: readByUserId :: Data reading from cache");
+//                response = objectMapper.readValue(cacheResponse, SBApiResponse.class);
+//            } else {
                 List<String> fields = Arrays.asList("userid", "courseid", "completedon", "completionpercentage", "enrolled_date", "issued_certificates", "progress", "status"); // Assuming user_id is the column name in your table
                 Map<String, Object> propertyMap = new HashMap<>();
                 propertyMap.put("userid", userId);
@@ -135,7 +143,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 if (!userEnrollmentList.isEmpty()) {
                     response.setResponseCode(HttpStatus.OK);
                     response.getObjectList().addAll(userEnrollmentList);
-                    cacheService.putCache(userId, response);
+                    //cacheService.putCache(userId, response);
                 } else {
                     response.getParams().setMsg("User is not enrolled into any courses");
                     response.getParams().setStatus(Constants.SUCCESS);
@@ -143,7 +151,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                     return response;
 
                 }
-            }
+//            }
             return response;
         } catch (Exception e) {
             String errMsg = "Error while performing operation." + e.getMessage();
@@ -169,10 +177,10 @@ public class EnrollmentServiceImpl implements EnrollmentService {
             }
 
             String cacheResponse = cacheService.getCache(userId + courseid);
-            if (cacheResponse != null) {
-                log.info("EnrollmentServiceImpl :: readByUserIdAndCourseId :: Data reading from cache");
-                response = objectMapper.readValue(cacheResponse, SBApiResponse.class);
-            } else {
+//            if (cacheResponse != null) {
+//                log.info("EnrollmentServiceImpl :: readByUserIdAndCourseId :: Data reading from cache");
+//                response = objectMapper.readValue(cacheResponse, SBApiResponse.class);
+//            } else {
                 List<String> fields = Arrays.asList("userid", "courseid", "completedon", "completionpercentage", "enrolled_date", "issued_certificates", "progress", "status"); // Assuming user_id is the column name in your table
                 Map<String, Object> propertyMap = new HashMap<>();
                 propertyMap.put("userid", userId);
@@ -188,7 +196,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                         if (!enrollment.isEmpty()) {
                             response.setResponseCode(HttpStatus.OK);
                             response.setResult(enrollment);
-                            cacheService.putCache(userId + courseid, response);
+                       //     cacheService.putCache(userId + courseid, response);
                         } else {
                             response.getParams().setMsg("courseId is not matching");
                             response.getParams().setStatus(Constants.FAILED);
@@ -202,7 +210,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                     response.setResponseCode(HttpStatus.OK);
                     return response;
                 }
-            }
+//            }
             return response;
         } catch (Exception e) {
             log.error("error while processing", e);

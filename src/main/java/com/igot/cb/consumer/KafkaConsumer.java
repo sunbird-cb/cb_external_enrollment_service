@@ -2,10 +2,13 @@ package com.igot.cb.consumer;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.igot.cb.producer.Producer;
 import com.igot.cb.util.cache.CacheService;
 import com.igot.cb.util.Constants;
 import com.igot.cb.transactional.cassandrautils.CassandraOperation;
 
+import java.io.File;
 import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -21,8 +24,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.ResourceUtils;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDate;
 import java.util.*;
 
 @Component
@@ -39,6 +44,10 @@ public class KafkaConsumer {
     @Value("${kong.api.auth.token}")
     private String token;
 
+    @Value("${spring.kafka.certificate.topic.name}")
+    private String certificate;
+
+
     @Autowired
     RestTemplate restTemplate;
 
@@ -48,15 +57,18 @@ public class KafkaConsumer {
     @Autowired
     CacheService cacheService;
 
+    @Autowired
+    private Producer producer;
+
     @KafkaListener(topics = "${spring.kafka.cornell.topic.name}", groupId = "${spring.kafka.consumer.group.id}")
     public void enrollUpdateConsumer(ConsumerRecord<String, String> data) {
-        log.info("KafkaConsumer::enrollUpdateConsumer:topic name: {} and recievedData: {}",data.topic(),data.value());
+        log.info("KafkaConsumer::enrollUpdateConsumer:topic name: {} and recievedData: {}", data.topic(), data.value());
         try {
             Map<String, Object> userCourseEnrollMap = mapper.readValue(data.value(), HashMap.class);
             if (userCourseEnrollMap.containsKey("userid") && userCourseEnrollMap.get("userid") instanceof String && userCourseEnrollMap.containsKey("courseid") && userCourseEnrollMap.get("courseid") instanceof String) {
                 String extCourseId = userCourseEnrollMap.get("courseid").toString();
                 String courseId = callExtApi(extCourseId);
-                log.info("KafkaConsumer :: enrollUpdateConsumer ::courseId from cios api {}",courseId);
+                log.info("KafkaConsumer :: enrollUpdateConsumer ::courseId from cios api {}", courseId);
                 String[] parts = ((String) userCourseEnrollMap.get("userid")).split("@");
                 userCourseEnrollMap.put("userid", parts[0]);
                 Map<String, Object> propertyMap = new HashMap<>();
@@ -78,6 +90,10 @@ public class KafkaConsumer {
                     cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_EXTERNAL_ENROLMENTS_T1, updatedMap, propertyMap);
                     cacheService.deleteCache(userCourseEnrollMap.get("userid").toString() + courseId);
                     cacheService.deleteCache(userCourseEnrollMap.get("userid").toString());
+                    File metadataFile = ResourceUtils.getFile("classpath:certificateTemplate.json");
+                    JsonNode jsonNode = mapper.readTree(metadataFile);
+                    replacePlaceholders(jsonNode, propertyMap);
+                    producer.push(certificate, jsonNode);
                     log.info("KafkaConsumer::enrollUpdateConsumer:updated");
                 }
             }
@@ -88,9 +104,10 @@ public class KafkaConsumer {
     }
 
     private String callExtApi(String extCourseId) {
+        log.info("KafkaConsumer :: callExtApi");
         String url = baseUrl + fixedUrl + extCourseId;
         HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization",token);
+        headers.set("Authorization", token);
         HttpEntity<String> entity = new HttpEntity<>(headers);
         ResponseEntity<Object> response = restTemplate.exchange(
                 url,
@@ -101,7 +118,7 @@ public class KafkaConsumer {
         if (response.getStatusCode().is2xxSuccessful()) {
             JsonNode jsonNode = mapper.valueToTree(response.getBody());
             return jsonNode.path("content").path("contentId").asText();
-        }else {
+        } else {
             throw new RuntimeException("Failed to retrieve externalId. Status code: " + response.getStatusCodeValue());
         }
 
@@ -109,16 +126,58 @@ public class KafkaConsumer {
 
     public static Timestamp convertToTimestamp(String dateString) {
         SimpleDateFormat dateFormat = new SimpleDateFormat("MM/dd/yyyy");
-        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC")); // Set desired timezone, UTC in this example
+        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
         try {
-            // Parse the date string into a Date object
             Date parsedDate = dateFormat.parse(dateString);
-            // Convert the Date object to a Timestamp object
             return new Timestamp(parsedDate.getTime());
         } catch (ParseException e) {
             e.printStackTrace();
-            // Handle the exception or rethrow it as needed
             return null;
         }
     }
+
+    private static void replacePlaceholders(JsonNode jsonNode, Map<String, Object> propertyMap) {
+        log.info("KafkaConsumer :: replacePlaceholders");
+        if (jsonNode.isObject()) {
+            ObjectNode objectNode = (ObjectNode) jsonNode;
+            objectNode.fields().forEachRemaining(entry -> {
+                JsonNode value = entry.getValue();
+                if (value.isTextual()) {
+                    String textValue = value.asText();
+                    if (textValue.startsWith("${") && textValue.endsWith("}")) {
+                        String placeholder = textValue.substring(2, textValue.length() - 1);
+                        String replacement = getReplacementValue(placeholder, propertyMap);
+                        objectNode.put(entry.getKey(), replacement);
+                    }
+                } else if (value.isArray()) {
+                    value.elements().forEachRemaining(element -> {
+                        if (element.isObject()) {
+                            replacePlaceholders(element, propertyMap);
+                        }
+                    });
+                } else {
+                    replacePlaceholders(value, propertyMap);
+                }
+            });
+        }
+    }
+
+    private static String getReplacementValue(String placeholder, Map<String, Object> propertyMap) {
+        log.info("KafkaConsumer :: getReplacementValue");
+        switch (placeholder) {
+            case "user.id":
+                return (String) propertyMap.get("userid");
+            case "course.id":
+                return (String) propertyMap.get("courseid");
+            case "today.date":
+                return LocalDate.now().toString();
+            case "time.ms":
+                return String.valueOf(System.currentTimeMillis());
+            case "unique.id":
+                return UUID.randomUUID().toString();
+            default:
+                return "";
+        }
+    }
+
 }
