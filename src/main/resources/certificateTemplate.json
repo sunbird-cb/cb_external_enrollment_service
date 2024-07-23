@@ -14,7 +14,7 @@
     "courseName": "Effective communication",
     "coursePosterImage": "https://portal.karmayogi.nic.in/content-store/content/do_1139053700166533121199/artifact/do_1139053700166533121199_1697432863723_effectivecommunication1697432865415.jpg",
     "criteria": {
-      "narrative": "certificatetemplatefinalised2023mar06.svg"
+      "narrative": "cornel_completion_certificate.svg"
     },
     "data": [
       {
@@ -27,14 +27,14 @@
       "name": "in",
       "url": "https://diksha.gov.in/gj/"
     },
-    "name": "certificatetemplatefinalised2023mar06.svg",
+    "name": "cornel_completion_certificate.svg",
     "oldId": "",
     "orgId": "01384739322653081641",
     "primaryCategory": "External-Course",
     "providerName": "Ministry for Testing",
     "related": {
       "courseId": "${course.id}",
-      "type": "certificatetemplatefinalised2023mar06.svg"
+      "type": "cornel_completion_certificate.svg"
     },
     "signatoryList": [
       {
@@ -44,9 +44,9 @@
         "designation": "Home Minister"
       }
     ],
-    "svgTemplate": "https://static.karmayogiprod.nic.in/igot/content/do_11387584827074969612/artifact/do_11387584827074969612_1693829136144_certificatetemplatefinalised2023mar061693829134793.svg",
+    "svgTemplate": "https://static.karmayogiprod.nic.in/igot/content/do_114104376473182208114/artifact/do_114104376473182208114_1721726406927_cornel_completion_certificate.svg",
     "tag": "${course.id}",
-    "templateId": "do_11387584827074969612",
+    "templateId": "do_114104376473182208114",
     "userId": "${user.id}"
   },
   "eid": "BE_JOB_REQUEST",
