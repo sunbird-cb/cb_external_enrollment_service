@@ -14,7 +14,7 @@
     "courseName": "Effective communication",
     "coursePosterImage": "https://portal.karmayogi.nic.in/content-store/content/do_1139053700166533121199/artifact/do_1139053700166533121199_1697432863723_effectivecommunication1697432865415.jpg",
     "criteria": {
-      "narrative": "certificatetemplatefinalised2023mar06.svg"
+      "narrative": "cornel_completion_certificate.svg"
     },
     "data": [
       {
@@ -27,14 +27,14 @@
       "name": "in",
       "url": "https://diksha.gov.in/gj/"
     },
-    "name": "certificatetemplatefinalised2023mar06.svg",
+    "name": "cornel_completion_certificate.svg",
     "oldId": "",
     "orgId": "01384739322653081641",
     "primaryCategory": "External-Course",
     "providerName": "Ministry for Testing",
     "related": {
       "courseId": "${course.id}",
-      "type": "certificatetemplatefinalised2023mar06.svg"
+      "type": "cornel_completion_certificate.svg"
     },
     "signatoryList": [
       {
