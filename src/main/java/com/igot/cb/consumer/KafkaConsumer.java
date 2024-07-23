@@ -73,7 +73,8 @@ public class KafkaConsumer {
             Map<String, Object> userCourseEnrollMap = mapper.readValue(data.value(), HashMap.class);
             if (userCourseEnrollMap.containsKey("userid") && userCourseEnrollMap.get("userid") instanceof String && userCourseEnrollMap.containsKey("courseid") && userCourseEnrollMap.get("courseid") instanceof String) {
                 String extCourseId = userCourseEnrollMap.get("courseid").toString();
-                String courseId = callExtApi(extCourseId);
+                JsonNode result=callExtApi(extCourseId);
+                String courseId=result.path("content").get("contentId").asText();
                 log.info("KafkaConsumer :: enrollUpdateConsumer ::courseId from cios api {}", courseId);
                 String[] parts = ((String) userCourseEnrollMap.get("userid")).split("@");
                 userCourseEnrollMap.put("userid", parts[0]);
@@ -99,7 +100,16 @@ public class KafkaConsumer {
                     Resource resource = resourceLoader.getResource("classpath:certificateTemplate.json");
                     InputStream inputStream = resource.getInputStream();
                     JsonNode jsonNode = mapper.readTree(inputStream);
-                    replacePlaceholders(jsonNode, propertyMap);
+                    Map<String, Object> certificateRequest = new HashMap<>();
+                    certificateRequest.put("userid", userCourseEnrollMap.get("userid"));
+                    certificateRequest.put("courseid", courseId);
+                    certificateRequest.put("completiondate", userCourseEnrollMap.get("completedon"));
+                    certificateRequest.put("providerName",result.path("content").path("contentPartner").get("contentPartnerName").asText());
+                    certificateRequest.put("courseName",result.path("content").get("name").asText());
+                    certificateRequest.put("courseName",result.path("content").get("name").asText());
+                    certificateRequest.put("coursePosterImage",result.path("content").path("contentPartner").get("link").asText());
+                    certificateRequest.put("recipientName",readUserName(userCourseEnrollMap.get("userid").toString()));
+                    replacePlaceholders(jsonNode, certificateRequest);
                     producer.push(certificate, jsonNode);
                     inputStream.close();
                     log.info("KafkaConsumer::enrollUpdateConsumer:updated");
@@ -111,7 +121,26 @@ public class KafkaConsumer {
         }
     }
 
-    private String callExtApi(String extCourseId) {
+    private String readUserName(String userid) {
+        List<String> fields = Arrays.asList("firstname","lastname"); // Assuming user_id is the column name in your table
+        Map<String, Object> propertyMap = new HashMap<>();
+        propertyMap.put("id", userid);
+        List<Map<String, Object>> userEnrollmentList = cassandraOperation.getRecordsByProperties(
+                Constants.KEYSPACE_SUNBIRD,
+                Constants.TABLE_USER,
+                propertyMap,
+                fields
+        );
+        String firstname= (String) userEnrollmentList.stream().findFirst().get().get("firstname");
+        String lastname= (String) userEnrollmentList.stream().findFirst().get().get("lastname");
+        String fullname=firstname;
+        if(lastname!=null){
+            fullname= fullname+" "+lastname;
+        }
+        return fullname;
+    }
+
+    private JsonNode callExtApi(String extCourseId) {
         log.info("KafkaConsumer :: callExtApi");
         String url = baseUrl + fixedUrl + extCourseId;
         HttpHeaders headers = new HttpHeaders();
@@ -125,7 +154,7 @@ public class KafkaConsumer {
         );
         if (response.getStatusCode().is2xxSuccessful()) {
             JsonNode jsonNode = mapper.valueToTree(response.getBody());
-            return jsonNode.path("content").path("contentId").asText();
+            return jsonNode;
         } else {
             throw new RuntimeException("Failed to retrieve externalId. Status code: " + response.getStatusCodeValue());
         }
@@ -144,7 +173,7 @@ public class KafkaConsumer {
         }
     }
 
-    private static void replacePlaceholders(JsonNode jsonNode, Map<String, Object> propertyMap) {
+    private static void replacePlaceholders(JsonNode jsonNode, Map<String, Object> certificateRequest) {
         log.info("KafkaConsumer :: replacePlaceholders");
         if (jsonNode.isObject()) {
             ObjectNode objectNode = (ObjectNode) jsonNode;
@@ -154,35 +183,43 @@ public class KafkaConsumer {
                     String textValue = value.asText();
                     if (textValue.startsWith("${") && textValue.endsWith("}")) {
                         String placeholder = textValue.substring(2, textValue.length() - 1);
-                        String replacement = getReplacementValue(placeholder, propertyMap);
+                        String replacement = getReplacementValue(placeholder, certificateRequest);
                         objectNode.put(entry.getKey(), replacement);
                     }
                 } else if (value.isArray()) {
                     value.elements().forEachRemaining(element -> {
                         if (element.isObject()) {
-                            replacePlaceholders(element, propertyMap);
+                            replacePlaceholders(element, certificateRequest);
                         }
                     });
                 } else {
-                    replacePlaceholders(value, propertyMap);
+                    replacePlaceholders(value, certificateRequest);
                 }
             });
         }
     }
 
-    private static String getReplacementValue(String placeholder, Map<String, Object> propertyMap) {
+    private static String getReplacementValue(String placeholder, Map<String, Object> certificateRequest) {
         log.info("KafkaConsumer :: getReplacementValue");
         switch (placeholder) {
             case "user.id":
-                return (String) propertyMap.get("userid");
+                return (String) certificateRequest.get("userid");
             case "course.id":
-                return (String) propertyMap.get("courseid");
+                return (String) certificateRequest.get("courseid");
             case "today.date":
-                return LocalDate.now().toString();
+                return (String) certificateRequest.get("completiondate");
             case "time.ms":
                 return String.valueOf(System.currentTimeMillis());
             case "unique.id":
                 return UUID.randomUUID().toString();
+            case "course.name":
+                return (String) certificateRequest.get("courseName");
+            case "provider.name":
+                return (String) certificateRequest.get("providerName");
+            case "user.name":
+                return (String) certificateRequest.get("recipientName");
+            case "course.poster.image":
+                return (String) certificateRequest.get("coursePosterImage");
             default:
                 return "";
         }

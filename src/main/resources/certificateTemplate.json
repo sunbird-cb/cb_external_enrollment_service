@@ -11,15 +11,15 @@
   },
   "edata": {
     "basePath": "https://portal.karmayogi.nic.in/certs",
-    "courseName": "Effective communication",
-    "coursePosterImage": "https://portal.karmayogi.nic.in/content-store/content/do_1139053700166533121199/artifact/do_1139053700166533121199_1697432863723_effectivecommunication1697432865415.jpg",
+    "courseName": "${course.name}",
+    "coursePosterImage": "${course.poster.image}",
     "criteria": {
       "narrative": "cornel_completion_certificate.svg"
     },
     "data": [
       {
         "recipientId": "${user.id}",
-        "recipientName": "Ankit Kumar"
+        "recipientName": "${user.name}"
       }
     ],
     "issuedDate": "${today.date}",
@@ -31,7 +31,7 @@
     "oldId": "",
     "orgId": "01384739322653081641",
     "primaryCategory": "External-Course",
-    "providerName": "Ministry for Testing",
+    "providerName": "${provider.name}",
     "related": {
       "courseId": "${course.id}",
       "type": "cornel_completion_certificate.svg"
@@ -57,3 +57,5 @@
     "type": "GenerateCertificate"
   }
 }
+
+
