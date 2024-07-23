@@ -31,6 +31,7 @@ import org.springframework.util.ResourceUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Component
@@ -207,7 +208,7 @@ public class KafkaConsumer {
             case "course.id":
                 return (String) certificateRequest.get("courseid");
             case "today.date":
-                return (String) certificateRequest.get("completiondate");
+                return convertDateFormat((String) certificateRequest.get("completiondate"));
             case "time.ms":
                 return String.valueOf(System.currentTimeMillis());
             case "unique.id":
@@ -223,6 +224,14 @@ public class KafkaConsumer {
             default:
                 return "";
         }
+    }
+
+    private static String convertDateFormat(String originalDate) {
+        DateTimeFormatter originalFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+        LocalDate date = LocalDate.parse(originalDate, originalFormatter);
+        DateTimeFormatter outputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        String formattedDate = date.format(outputFormatter);
+        return formattedDate;
     }
 
 }
