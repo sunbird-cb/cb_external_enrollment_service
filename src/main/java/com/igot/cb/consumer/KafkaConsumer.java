@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.igot.cb.producer.Producer;
+import com.igot.cb.util.CbServerProperties;
 import com.igot.cb.util.cache.CacheService;
 import com.igot.cb.util.Constants;
 import com.igot.cb.transactional.cassandrautils.CassandraOperation;
@@ -39,19 +40,6 @@ import java.util.*;
 public class KafkaConsumer {
     private ObjectMapper mapper = new ObjectMapper();
 
-    @Value("${cios.read.api.base.url}")
-    private String baseUrl;
-
-    @Value("${cios.read.api.fixed.url}")
-    private String fixedUrl;
-
-    @Value("${kong.api.auth.token}")
-    private String token;
-
-    @Value("${spring.kafka.certificate.topic.name}")
-    private String certificate;
-
-
     @Autowired
     RestTemplate restTemplate;
 
@@ -66,6 +54,9 @@ public class KafkaConsumer {
 
     @Autowired
     private ResourceLoader resourceLoader;
+
+    @Autowired
+    private CbServerProperties cbServerProperties;
 
     @KafkaListener(topics = "${spring.kafka.cornell.topic.name}", groupId = "${spring.kafka.consumer.group.id}")
     public void enrollUpdateConsumer(ConsumerRecord<String, String> data) {
@@ -107,11 +98,10 @@ public class KafkaConsumer {
                     certificateRequest.put("completiondate", userCourseEnrollMap.get("completedon"));
                     certificateRequest.put("providerName",result.path("content").path("contentPartner").get("contentPartnerName").asText());
                     certificateRequest.put("courseName",result.path("content").get("name").asText());
-                    certificateRequest.put("courseName",result.path("content").get("name").asText());
                     certificateRequest.put("coursePosterImage",result.path("content").path("contentPartner").get("link").asText());
                     certificateRequest.put("recipientName",readUserName(userCourseEnrollMap.get("userid").toString()));
                     replacePlaceholders(jsonNode, certificateRequest);
-                    producer.push(certificate, jsonNode);
+                    producer.push(cbServerProperties.getCertificateTopic(), jsonNode);
                     inputStream.close();
                     log.info("KafkaConsumer::enrollUpdateConsumer:updated");
                 }
@@ -143,9 +133,9 @@ public class KafkaConsumer {
 
     private JsonNode callExtApi(String extCourseId) {
         log.info("KafkaConsumer :: callExtApi");
-        String url = baseUrl + fixedUrl + extCourseId;
+        String url = cbServerProperties.getBaseUrl() + cbServerProperties.getFixedUrl() + extCourseId;
         HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", token);
+        headers.set("Authorization", cbServerProperties.getToken());
         HttpEntity<String> entity = new HttpEntity<>(headers);
         ResponseEntity<Object> response = restTemplate.exchange(
                 url,
@@ -174,7 +164,7 @@ public class KafkaConsumer {
         }
     }
 
-    private static void replacePlaceholders(JsonNode jsonNode, Map<String, Object> certificateRequest) {
+    private void replacePlaceholders(JsonNode jsonNode, Map<String, Object> certificateRequest) {
         log.info("KafkaConsumer :: replacePlaceholders");
         if (jsonNode.isObject()) {
             ObjectNode objectNode = (ObjectNode) jsonNode;
@@ -200,7 +190,7 @@ public class KafkaConsumer {
         }
     }
 
-    private static String getReplacementValue(String placeholder, Map<String, Object> certificateRequest) {
+    private String getReplacementValue(String placeholder, Map<String, Object> certificateRequest) {
         log.info("KafkaConsumer :: getReplacementValue");
         switch (placeholder) {
             case "user.id":
@@ -221,6 +211,8 @@ public class KafkaConsumer {
                 return (String) certificateRequest.get("recipientName");
             case "course.poster.image":
                 return (String) certificateRequest.get("coursePosterImage");
+            case "svgTemplate":
+                return cbServerProperties.getSvgTemplate();
             default:
                 return "";
         }
