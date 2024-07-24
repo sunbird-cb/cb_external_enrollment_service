@@ -44,7 +44,7 @@
         "designation": "Home Minister"
       }
     ],
-    "svgTemplate": "https://static.karmayogiprod.nic.in/igot/content/do_114104376473182208114/artifact/do_114104376473182208114_1721740907033_cornel_completion_certificate.svg",
+    "svgTemplate": "${svgTemplate}",
     "tag": "${course.id}",
     "templateId": "do_114104376473182208114",
     "userId": "${user.id}"
