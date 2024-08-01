@@ -260,7 +260,7 @@ public class Constants {
     public static final String SPV_ORG_NAME = "Karmayogi Bharat";
     public static final String INVALID_DATA = "No data found";
     public static final String ENROLLMENT_VALIDATION_FILE_JSON = "/payloadValidation/orgBookmarkUpdateValidation.json";
-    public static final String TABLE_USER_EXTERNAL_ENROLMENTS_T1 = "user_external_enrolments_t1";
+    public static final String TABLE_USER_EXTERNAL_ENROLMENTS = "user_external_enrolments";
     public static final String ENROLLED_DATE = "enrolled_date";
     public static final String COURSE_ID_RQST = "courseId";
     public static final String CIOS_ENROLLMENT_CREATE="ciosenroll.v1.create";

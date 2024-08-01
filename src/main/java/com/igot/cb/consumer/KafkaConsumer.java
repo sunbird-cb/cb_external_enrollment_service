@@ -62,6 +62,9 @@ public class KafkaConsumer {
     public void enrollUpdateConsumer(ConsumerRecord<String, String> data) {
         log.info("KafkaConsumer::enrollUpdateConsumer:topic name: {} and recievedData: {}", data.topic(), data.value());
         try {
+            TimeZone timeZone = TimeZone.getTimeZone("Asia/Kolkata");
+            Timestamp timestamp = new Timestamp(System.currentTimeMillis());
+            timestamp.setTime(timestamp.getTime() + timeZone.getOffset(timestamp.getTime()));
             Map<String, Object> userCourseEnrollMap = mapper.readValue(data.value(), HashMap.class);
             if (userCourseEnrollMap.containsKey("userid") && userCourseEnrollMap.get("userid") instanceof String && userCourseEnrollMap.containsKey("courseid") && userCourseEnrollMap.get("courseid") instanceof String) {
                 String extCourseId = userCourseEnrollMap.get("courseid").toString();
@@ -73,7 +76,7 @@ public class KafkaConsumer {
                 Map<String, Object> propertyMap = new HashMap<>();
                 propertyMap.put("userid", userCourseEnrollMap.get("userid"));
                 propertyMap.put("courseid", courseId);
-                List<Map<String, Object>> listOfMasterData = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_EXTERNAL_ENROLMENTS_T1, propertyMap, null, 1);
+                List<Map<String, Object>> listOfMasterData = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_EXTERNAL_ENROLMENTS, propertyMap, null, 1);
                 if (!CollectionUtils.isEmpty(listOfMasterData)) {
                     Map<String, Object> updatedMap = new HashMap<>();
                     updatedMap.put("progress",
@@ -85,10 +88,11 @@ public class KafkaConsumer {
                                 (String) userCourseEnrollMap.get("completedon")));
                         updatedMap.put("completionpercentage",
                                 100);
+                        updatedMap.put("updatedon",timestamp);
                     }
-                    cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_EXTERNAL_ENROLMENTS_T1, updatedMap, propertyMap);
-                    cacheService.deleteCache(userCourseEnrollMap.get("userid").toString() + courseId);
-                    cacheService.deleteCache(userCourseEnrollMap.get("userid").toString());
+                    cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_EXTERNAL_ENROLMENTS, updatedMap, propertyMap);
+//                    cacheService.deleteCache(userCourseEnrollMap.get("userid").toString() + courseId);
+//                    cacheService.deleteCache(userCourseEnrollMap.get("userid").toString());
                     Resource resource = resourceLoader.getResource("classpath:certificateTemplate.json");
                     InputStream inputStream = resource.getInputStream();
                     JsonNode jsonNode = mapper.readTree(inputStream);
