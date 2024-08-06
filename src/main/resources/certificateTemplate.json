@@ -12,6 +12,7 @@
   "edata": {
     "basePath": "https://portal.karmayogi.nic.in/certs",
     "courseName": "${course.name}",
+    "courseNameExtended": "${course.name.extended}",
     "coursePosterImage": "${course.poster.image}",
     "criteria": {
       "narrative": "cornel_completion_certificate.svg"

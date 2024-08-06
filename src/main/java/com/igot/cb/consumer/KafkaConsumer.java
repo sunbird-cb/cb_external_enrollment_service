@@ -16,6 +16,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang.WordUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -169,7 +170,7 @@ public class KafkaConsumer {
     }
 
     private void replacePlaceholders(JsonNode jsonNode, Map<String, Object> certificateRequest) {
-        log.info("KafkaConsumer :: replacePlaceholders");
+        log.debug("KafkaConsumer :: replacePlaceholders");
         if (jsonNode.isObject()) {
             ObjectNode objectNode = (ObjectNode) jsonNode;
             objectNode.fields().forEachRemaining(entry -> {
@@ -195,7 +196,8 @@ public class KafkaConsumer {
     }
 
     private String getReplacementValue(String placeholder, Map<String, Object> certificateRequest) {
-        log.info("KafkaConsumer :: getReplacementValue");
+        log.debug("KafkaConsumer :: getReplacementValue");
+        String value=WordUtils.wrap("Recognizing Institutional Obligations to Individual Patients With Protected Characteristics:", 100, "\n", false);
         switch (placeholder) {
             case "user.id":
                 return (String) certificateRequest.get("userid");
@@ -208,7 +210,21 @@ public class KafkaConsumer {
             case "unique.id":
                 return UUID.randomUUID().toString();
             case "course.name":
-                return (String) certificateRequest.get("courseName");
+                int firstNewLineIndex = value.indexOf("\n");
+                if (firstNewLineIndex != -1) {
+                    return value.substring(0, firstNewLineIndex).trim();
+                } else {
+                    return value;
+                }
+            case "course.name.extended":
+                int firstNewLineIndexExtended = value.indexOf("\n");
+                if (firstNewLineIndexExtended != -1) {
+                    String textAfterFirstNewLine = value.substring(firstNewLineIndexExtended + 1).trim();
+                    return textAfterFirstNewLine.length() > 100 ? textAfterFirstNewLine.substring(0, 100) : textAfterFirstNewLine;
+                }
+                else {
+                    return "";
+                }
             case "provider.name":
                 return (String) certificateRequest.get("providerName");
             case "user.name":
