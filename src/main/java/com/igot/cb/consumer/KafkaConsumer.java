@@ -197,7 +197,7 @@ public class KafkaConsumer {
 
     private String getReplacementValue(String placeholder, Map<String, Object> certificateRequest) {
         log.debug("KafkaConsumer :: getReplacementValue");
-        String value=WordUtils.wrap("Recognizing Institutional Obligations to Individual Patients With Protected Characteristics:", 100, "\n", false);
+        String value=WordUtils.wrap((String) certificateRequest.get("courseName"), 100, "\n", false);
         switch (placeholder) {
             case "user.id":
                 return (String) certificateRequest.get("userid");
