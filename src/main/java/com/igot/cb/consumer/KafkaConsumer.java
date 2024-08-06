@@ -16,6 +16,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang.WordUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -62,6 +63,9 @@ public class KafkaConsumer {
     public void enrollUpdateConsumer(ConsumerRecord<String, String> data) {
         log.info("KafkaConsumer::enrollUpdateConsumer:topic name: {} and recievedData: {}", data.topic(), data.value());
         try {
+            TimeZone timeZone = TimeZone.getTimeZone("Asia/Kolkata");
+            Timestamp timestamp = new Timestamp(System.currentTimeMillis());
+            timestamp.setTime(timestamp.getTime() + timeZone.getOffset(timestamp.getTime()));
             Map<String, Object> userCourseEnrollMap = mapper.readValue(data.value(), HashMap.class);
             if (userCourseEnrollMap.containsKey("userid") && userCourseEnrollMap.get("userid") instanceof String && userCourseEnrollMap.containsKey("courseid") && userCourseEnrollMap.get("courseid") instanceof String) {
                 String extCourseId = userCourseEnrollMap.get("courseid").toString();
@@ -73,7 +77,7 @@ public class KafkaConsumer {
                 Map<String, Object> propertyMap = new HashMap<>();
                 propertyMap.put("userid", userCourseEnrollMap.get("userid"));
                 propertyMap.put("courseid", courseId);
-                List<Map<String, Object>> listOfMasterData = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_EXTERNAL_ENROLMENTS_T1, propertyMap, null, 1);
+                List<Map<String, Object>> listOfMasterData = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_EXTERNAL_ENROLMENTS, propertyMap, null, 1);
                 if (!CollectionUtils.isEmpty(listOfMasterData)) {
                     Map<String, Object> updatedMap = new HashMap<>();
                     updatedMap.put("progress",
@@ -85,10 +89,11 @@ public class KafkaConsumer {
                                 (String) userCourseEnrollMap.get("completedon")));
                         updatedMap.put("completionpercentage",
                                 100);
+                        updatedMap.put("updatedon",timestamp);
                     }
-                    cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_EXTERNAL_ENROLMENTS_T1, updatedMap, propertyMap);
-                    cacheService.deleteCache(userCourseEnrollMap.get("userid").toString() + courseId);
-                    cacheService.deleteCache(userCourseEnrollMap.get("userid").toString());
+                    cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_EXTERNAL_ENROLMENTS, updatedMap, propertyMap);
+//                    cacheService.deleteCache(userCourseEnrollMap.get("userid").toString() + courseId);
+//                    cacheService.deleteCache(userCourseEnrollMap.get("userid").toString());
                     Resource resource = resourceLoader.getResource("classpath:certificateTemplate.json");
                     InputStream inputStream = resource.getInputStream();
                     JsonNode jsonNode = mapper.readTree(inputStream);
@@ -165,7 +170,7 @@ public class KafkaConsumer {
     }
 
     private void replacePlaceholders(JsonNode jsonNode, Map<String, Object> certificateRequest) {
-        log.info("KafkaConsumer :: replacePlaceholders");
+        log.debug("KafkaConsumer :: replacePlaceholders");
         if (jsonNode.isObject()) {
             ObjectNode objectNode = (ObjectNode) jsonNode;
             objectNode.fields().forEachRemaining(entry -> {
@@ -191,7 +196,8 @@ public class KafkaConsumer {
     }
 
     private String getReplacementValue(String placeholder, Map<String, Object> certificateRequest) {
-        log.info("KafkaConsumer :: getReplacementValue");
+        log.debug("KafkaConsumer :: getReplacementValue");
+        String value=WordUtils.wrap("Recognizing Institutional Obligations to Individual Patients With Protected Characteristics:", 100, "\n", false);
         switch (placeholder) {
             case "user.id":
                 return (String) certificateRequest.get("userid");
@@ -204,7 +210,21 @@ public class KafkaConsumer {
             case "unique.id":
                 return UUID.randomUUID().toString();
             case "course.name":
-                return (String) certificateRequest.get("courseName");
+                int firstNewLineIndex = value.indexOf("\n");
+                if (firstNewLineIndex != -1) {
+                    return value.substring(0, firstNewLineIndex).trim();
+                } else {
+                    return value;
+                }
+            case "course.name.extended":
+                int firstNewLineIndexExtended = value.indexOf("\n");
+                if (firstNewLineIndexExtended != -1) {
+                    String textAfterFirstNewLine = value.substring(firstNewLineIndexExtended + 1).trim();
+                    return textAfterFirstNewLine.length() > 100 ? textAfterFirstNewLine.substring(0, 100) : textAfterFirstNewLine;
+                }
+                else {
+                    return "";
+                }
             case "provider.name":
                 return (String) certificateRequest.get("providerName");
             case "user.name":

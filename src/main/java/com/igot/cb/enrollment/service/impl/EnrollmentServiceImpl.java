@@ -78,8 +78,10 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                         new ArrayList<>());
                 userCourseEnrollMap.put(Constants.ENROLLED_DATE,
                         timestamp);
+                userCourseEnrollMap.put("updatedon",
+                        timestamp);
                 cassandraOperation.insertRecord(Constants.KEYSPACE_SUNBIRD_COURSES,
-                        Constants.TABLE_USER_EXTERNAL_ENROLMENTS_T1, userCourseEnrollMap);
+                        Constants.TABLE_USER_EXTERNAL_ENROLMENTS, userCourseEnrollMap);
                 response.setResponseCode(HttpStatus.OK);
                 response.setResult(userCourseEnrollMap);
                 if(cbServerProperties.isRedisCacheEnable()) {
@@ -131,12 +133,12 @@ public class EnrollmentServiceImpl implements EnrollmentService {
 //                log.info("EnrollmentServiceImpl :: readByUserId :: Data reading from cache");
 //                response = objectMapper.readValue(cacheResponse, SBApiResponse.class);
 //            } else {
-                List<String> fields = Arrays.asList("userid", "courseid", "completedon", "completionpercentage", "enrolled_date", "issued_certificates", "progress", "status"); // Assuming user_id is the column name in your table
+                List<String> fields = Arrays.asList("userid", "courseid", "completedon","updatedon","completionpercentage", "enrolled_date", "issued_certificates", "progress", "status"); // Assuming user_id is the column name in your table
                 Map<String, Object> propertyMap = new HashMap<>();
                 propertyMap.put("userid", userId);
                 List<Map<String, Object>> userEnrollmentList = cassandraOperation.getRecordsByProperties(
                         Constants.KEYSPACE_SUNBIRD_COURSES,
-                        Constants.TABLE_USER_EXTERNAL_ENROLMENTS_T1,
+                        Constants.TABLE_USER_EXTERNAL_ENROLMENTS,
                         propertyMap,
                         fields
                 );
@@ -181,13 +183,13 @@ public class EnrollmentServiceImpl implements EnrollmentService {
 //                log.info("EnrollmentServiceImpl :: readByUserIdAndCourseId :: Data reading from cache");
 //                response = objectMapper.readValue(cacheResponse, SBApiResponse.class);
 //            } else {
-                List<String> fields = Arrays.asList("userid", "courseid", "completedon", "completionpercentage", "enrolled_date", "issued_certificates", "progress", "status"); // Assuming user_id is the column name in your table
+                List<String> fields = Arrays.asList("userid", "courseid", "completedon","updatedon","completionpercentage", "enrolled_date", "issued_certificates", "progress", "status"); // Assuming user_id is the column name in your table
                 Map<String, Object> propertyMap = new HashMap<>();
                 propertyMap.put("userid", userId);
                 propertyMap.put("courseid", courseid);
                 List<Map<String, Object>> userEnrollmentList = cassandraOperation.getRecordsByProperties(
                         Constants.KEYSPACE_SUNBIRD_COURSES,
-                        Constants.TABLE_USER_EXTERNAL_ENROLMENTS_T1,
+                        Constants.TABLE_USER_EXTERNAL_ENROLMENTS,
                         propertyMap,
                         fields
                 );
