@@ -27,4 +27,7 @@ public class CbServerProperties {
 
     @Value("${spring.kafka.certificate.topic.name}")
     private String certificateTopic;
+
+    @Value("${certificate.char.length}")
+    private int certificateCharLength;
 }

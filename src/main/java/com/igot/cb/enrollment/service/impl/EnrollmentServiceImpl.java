@@ -1,8 +1,12 @@
 package com.igot.cb.enrollment.service.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.igot.cb.authentication.util.AccessTokenValidator;
+import com.igot.cb.enrollment.entity.CiosContentEntity;
+import com.igot.cb.enrollment.repository.CiosContentRepository;
 import com.igot.cb.enrollment.service.EnrollmentService;
 import com.igot.cb.util.CbServerProperties;
 import com.igot.cb.util.cache.CacheService;
@@ -12,6 +16,8 @@ import com.igot.cb.util.PayloadValidation;
 import com.igot.cb.transactional.cassandrautils.CassandraOperation;
 import java.sql.Timestamp;
 import java.util.*;
+
+import com.igot.cb.util.exceptions.CustomException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.joda.time.DateTime;
@@ -41,6 +47,9 @@ public class EnrollmentServiceImpl implements EnrollmentService {
 
     @Autowired
     private CbServerProperties cbServerProperties;
+
+    @Autowired
+    private CiosContentRepository contentRepository;
 
 
     @Override
@@ -84,19 +93,6 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                         Constants.TABLE_USER_EXTERNAL_ENROLMENTS, userCourseEnrollMap);
                 response.setResponseCode(HttpStatus.OK);
                 response.setResult(userCourseEnrollMap);
-                if(cbServerProperties.isRedisCacheEnable()) {
-                SBApiResponse cachedResponse=createDefaultResponse(Constants.CIOS_ENROLLMENT_READ_COURSELIST);
-                cachedResponse.setResponseCode(HttpStatus.OK);
-                String cachedData = cacheService.getCache(userId);
-                if (cachedData == null) {
-                    cachedResponse.setObjectList((Arrays.asList(userCourseEnrollMap)));
-                } else {
-                    cachedResponse = objectMapper.readValue(cachedData, SBApiResponse.class);
-                    cachedResponse.getObjectList().add(userCourseEnrollMap);
-                }
-                cacheService.putCache(userId, cachedResponse);
-                cacheService.putCache(userId + userCourseEnroll.get("courseId").asText(), response);
-                }
                 return response;
             } else {
                 response.getParams().setMsg("CourseId is missing");
@@ -128,11 +124,6 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 response.setResponseCode(HttpStatus.BAD_REQUEST);
                 return response;
             }
-//            String cacheResponse = cacheService.getCache(userId);
-//            if (cacheResponse != null) {
-//                log.info("EnrollmentServiceImpl :: readByUserId :: Data reading from cache");
-//                response = objectMapper.readValue(cacheResponse, SBApiResponse.class);
-//            } else {
                 List<String> fields = Arrays.asList("userid", "courseid", "completedon","updatedon","completionpercentage", "enrolled_date", "issued_certificates", "progress", "status"); // Assuming user_id is the column name in your table
                 Map<String, Object> propertyMap = new HashMap<>();
                 propertyMap.put("userid", userId);
@@ -142,10 +133,18 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                         propertyMap,
                         fields
                 );
+            List<Map<String, Object>> courses=new ArrayList<>();
                 if (!userEnrollmentList.isEmpty()) {
+                    for (Map<String, Object> enrollment : userEnrollmentList) {
+                        // Extract the courseId from each map
+                        String courseId = (String) enrollment.get("courseid");
+                        Map<String, Object> data= (Map<String, Object>) fetchDataByContentId(courseId);
+                        enrollment.put("content",data.get("content"));
+                        courses.add(enrollment);
+                        response.put("courses", courses);
+                    }
                     response.setResponseCode(HttpStatus.OK);
-                    response.getObjectList().addAll(userEnrollmentList);
-                    //cacheService.putCache(userId, response);
+                    response.setResult(response.getResult());
                 } else {
                     response.getParams().setMsg("User is not enrolled into any courses");
                     response.getParams().setStatus(Constants.SUCCESS);
@@ -153,7 +152,6 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                     return response;
 
                 }
-//            }
             return response;
         } catch (Exception e) {
             String errMsg = "Error while performing operation." + e.getMessage();
@@ -228,6 +226,38 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         response.getParams().setStatus(Constants.SUCCESS);
         response.setResponseCode(HttpStatus.OK);
         response.setTs(DateTime.now().toString());
+        return response;
+    }
+
+    public Object fetchDataByContentId(String contentId) {
+        log.debug("getting content by id: " + contentId);
+        if (StringUtils.isEmpty(contentId)) {
+            log.error("CiosContentServiceImpl::read:Id not found");
+            throw new CustomException(Constants.ERROR, "contentId is mandatory", HttpStatus.BAD_REQUEST);
+        }
+        String cachedJson = cacheService.getCache(contentId);
+        Object response = null;
+        if (StringUtils.isNotEmpty(cachedJson)) {
+            log.info("CiosContentServiceImpl::read:Record coming from redis cache");
+            try {
+                response = objectMapper.readValue(cachedJson, new TypeReference<Object>() {
+                });
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
+        } else {
+            Optional<CiosContentEntity> optionalJsonNodeEntity = contentRepository.findByContentIdAndIsActive(contentId, true);
+            if (optionalJsonNodeEntity.isPresent()) {
+                CiosContentEntity ciosContentEntity = optionalJsonNodeEntity.get();
+                cacheService.putCache(contentId, ciosContentEntity.getCiosData());
+                log.info("CiosContentServiceImpl::read:Record coming from postgres db");
+                response = objectMapper.convertValue(ciosContentEntity.getCiosData(), new TypeReference<Object>() {
+                });
+            } else {
+                log.error("Invalid Id: {}", contentId);
+                throw new CustomException(Constants.ERROR, "No data found for given Id", HttpStatus.BAD_REQUEST);
+            }
+        }
         return response;
     }
 }

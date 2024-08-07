@@ -8,8 +8,6 @@ import com.igot.cb.util.CbServerProperties;
 import com.igot.cb.util.cache.CacheService;
 import com.igot.cb.util.Constants;
 import com.igot.cb.transactional.cassandrautils.CassandraOperation;
-
-import java.io.File;
 import java.io.InputStream;
 import java.sql.Timestamp;
 import java.text.ParseException;
@@ -197,7 +195,7 @@ public class KafkaConsumer {
 
     private String getReplacementValue(String placeholder, Map<String, Object> certificateRequest) {
         log.debug("KafkaConsumer :: getReplacementValue");
-        String value=WordUtils.wrap((String) certificateRequest.get("courseName"), 100, "\n", false);
+        String value=WordUtils.wrap((String) certificateRequest.get("courseName"), cbServerProperties.getCertificateCharLength(), "\n", false);
         switch (placeholder) {
             case "user.id":
                 return (String) certificateRequest.get("userid");
@@ -220,7 +218,13 @@ public class KafkaConsumer {
                 int firstNewLineIndexExtended = value.indexOf("\n");
                 if (firstNewLineIndexExtended != -1) {
                     String textAfterFirstNewLine = value.substring(firstNewLineIndexExtended + 1).trim();
-                    return textAfterFirstNewLine.length() > 100 ? textAfterFirstNewLine.substring(0, 100) : textAfterFirstNewLine;
+                    String secondValue=WordUtils.wrap(textAfterFirstNewLine, cbServerProperties.getCertificateCharLength(), "\n", false);
+                    int secondNewLineIndex=secondValue.indexOf("\n");
+                    if(secondNewLineIndex!=-1){
+                        return secondValue.substring(0, secondNewLineIndex).trim();
+                    }else{
+                        return secondValue;
+                    }
                 }
                 else {
                     return "";
