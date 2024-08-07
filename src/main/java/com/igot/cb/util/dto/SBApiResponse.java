@@ -75,15 +75,6 @@ public class SBApiResponse {
     public void setResult(Map<String, Object> result) {
         response = result;
     }
-
-    public List<Object> getObjectList() {
-        return objectList;
-    }
-
-    public void setObjectList(List<Object> result) {
-        objectList = result;
-    }
-
     public Object get(String key) {
         return response.get(key);
     }
