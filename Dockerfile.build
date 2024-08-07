@@ -1,7 +1,19 @@
 FROM openjdk:8
 
-RUN apt update && apt install maven -y
+# Install dependencies and Java
+RUN apt-get update && \
+    apt-get install -y openjdk-11-jdk ca-certificates-java && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
+# Verify the cacerts file
+RUN ls -l /etc/ssl/certs/java/cacerts
+
+# Install Maven
+RUN apt-get update && \
+    apt-get install -y maven && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 COPY . /opt
 WORKDIR /opt
 RUN mvn clean install
