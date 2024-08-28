@@ -181,7 +181,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 return response;
             }
 
-            String cacheResponse = cacheService.getCache(userId + courseid);
+//            String cacheResponse = cacheService.getCache(userId + courseid);
 //            if (cacheResponse != null) {
 //                log.info("EnrollmentServiceImpl :: readByUserIdAndCourseId :: Data reading from cache");
 //                response = objectMapper.readValue(cacheResponse, SBApiResponse.class);
@@ -219,7 +219,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
             return response;
         } catch (Exception e) {
             log.error("error while processing", e);
-            throw new RuntimeException(e);
+            throw new CustomException(Constants.ERROR,e.getMessage(),HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
