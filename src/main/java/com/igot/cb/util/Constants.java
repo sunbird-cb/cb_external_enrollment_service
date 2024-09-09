@@ -60,6 +60,8 @@ public class Constants {
     public static final String RECIPIENT_NAME="recipientName";
     public static final String PROGRESS="progress";
     public static final String COMPLETION_DATE="completiondate";
+    public static final String FETCH_RESULT_CONSTANT = ".fetchResult:";
+    public static final String URI_CONSTANT = "URI: ";
 
 
 

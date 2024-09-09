@@ -12,5 +12,5 @@ public interface EnrollmentService {
 
   SBApiResponse readByUserIdAndCourseId(String courseId,String token);
 
-  ContentPartnerEntity getContentDetailsByPartnerName(String name);
+  JsonNode fetchPartnerInfoUsingApi(String orgId);
 }
