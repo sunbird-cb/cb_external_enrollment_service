@@ -30,4 +30,10 @@ public class CbServerProperties {
 
     @Value("${certificate.char.length}")
     private int certificateCharLength;
+
+    @Value("${cb.pores.service.url}")
+    private String partnerServiceUrl;
+
+    @Value("${partner.read.path}")
+    private String partnerReadEndPoint;
 }

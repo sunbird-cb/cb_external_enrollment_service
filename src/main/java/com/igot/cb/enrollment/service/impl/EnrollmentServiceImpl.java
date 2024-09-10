@@ -4,9 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.igot.cb.authentication.util.AccessTokenValidator;
 import com.igot.cb.enrollment.entity.CiosContentEntity;
+import com.igot.cb.enrollment.entity.ContentPartnerEntity;
 import com.igot.cb.enrollment.repository.CiosContentRepository;
+import com.igot.cb.enrollment.repository.ContentPartnerRepository;
 import com.igot.cb.enrollment.service.EnrollmentService;
 import com.igot.cb.util.CbServerProperties;
 import com.igot.cb.util.cache.CacheService;
@@ -23,8 +26,14 @@ import org.apache.commons.lang3.StringUtils;
 import org.joda.time.DateTime;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
 
 @Service
 @Slf4j
@@ -50,6 +59,12 @@ public class EnrollmentServiceImpl implements EnrollmentService {
 
     @Autowired
     private CiosContentRepository contentRepository;
+
+    @Autowired
+    private ContentPartnerRepository contentPartnerRepository;
+
+    @Autowired
+    private RestTemplate restTemplate;
 
 
     @Override
@@ -176,7 +191,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 return response;
             }
 
-            String cacheResponse = cacheService.getCache(userId + courseid);
+//            String cacheResponse = cacheService.getCache(userId + courseid);
 //            if (cacheResponse != null) {
 //                log.info("EnrollmentServiceImpl :: readByUserIdAndCourseId :: Data reading from cache");
 //                response = objectMapper.readValue(cacheResponse, SBApiResponse.class);
@@ -214,7 +229,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
             return response;
         } catch (Exception e) {
             log.error("error while processing", e);
-            throw new RuntimeException(e);
+            throw new CustomException(Constants.ERROR,e.getMessage(),HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -256,6 +271,56 @@ public class EnrollmentServiceImpl implements EnrollmentService {
             } else {
                 log.error("Invalid Id: {}", contentId);
                 throw new CustomException(Constants.ERROR, "No data found for given Id", HttpStatus.BAD_REQUEST);
+            }
+        }
+        return response;
+    }
+
+    @Override
+    public JsonNode fetchPartnerInfoUsingApi(String orgId) {
+        log.info("CiosContentServiceImpl::fetchPartnerInfoUsingApi:fetching partner data by partnerName");
+        String getApiUrl = cbServerProperties.getPartnerServiceUrl() + cbServerProperties.getPartnerReadEndPoint() + orgId;
+        Map<String, String> headers = new HashMap<>();
+        Map<String, Object> readData = (Map<String, Object>) fetchResultUsingGet(getApiUrl, headers);
+
+        if (readData == null) {
+            throw new RuntimeException("Failed to get data from API: Response is null");
+        }
+        ObjectMapper objectMapper = new ObjectMapper();
+        return objectMapper.convertValue(readData, JsonNode.class);
+    }
+
+    public Object fetchResultUsingGet(String uri, Map<String, String> headersValues) {
+        log.info("CiosContentServiceImpl::fetchResultUsingGet:fetching partner data by get API call");
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+        Map<String, Object> response = null;
+        try {
+            if (log.isDebugEnabled()) {
+                StringBuilder str = new StringBuilder(this.getClass().getCanonicalName())
+                        .append(Constants.FETCH_RESULT_CONSTANT).append(System.lineSeparator());
+                str.append(Constants.URI_CONSTANT).append(uri).append(System.lineSeparator());
+                log.debug(str.toString());
+            }
+            HttpHeaders headers = new HttpHeaders();
+            if (!CollectionUtils.isEmpty(headersValues)) {
+                headersValues.forEach((k, v) -> headers.set(k, v));
+            }
+            HttpEntity<Object> entity = new HttpEntity<>(headers);
+            response = restTemplate.exchange(uri, HttpMethod.GET, entity, Map.class).getBody();
+        } catch (HttpClientErrorException e) {
+            try {
+                response = (new ObjectMapper()).readValue(e.getResponseBodyAsString(),
+                        new TypeReference<HashMap<String, Object>>() {
+                        });
+            } catch (Exception e1) {
+            }
+            log.error("Error received: " + e.getResponseBodyAsString(), e);
+        } catch (Exception e) {
+            log.error(String.valueOf(e));
+            try {
+                log.warn("Error Response: " + mapper.writeValueAsString(response));
+            } catch (Exception e1) {
             }
         }
         return response;
